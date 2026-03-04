@@ -16,7 +16,7 @@ import { useSupabaseChannels } from '@/hooks/useSupabaseChannels';
 
 import { Sun, Moon } from 'lucide-react';
 
-/* ✅ Hook dinâmico com fallback automático e seguro */
+/* ✅ Hook dinâmico */
 const useDynamicMeta = () => {
   const [dinamiqueConfig, setDinamiqueConfig] = useState({
     titulo: 'Sistema Multinegociações',
@@ -35,29 +35,27 @@ const useDynamicMeta = () => {
           .single();
 
         if (error || !data) {
-          console.warn('⚠️ Nenhuma configuração encontrada no Supabase. Usando fallback local.');
           aplicarMeta(dinamiqueConfig);
           return;
         }
 
-        console.log('✅ Configurações dinâmicas carregadas do Supabase:', data);
         setDinamiqueConfig(data);
         aplicarMeta(data);
-      } catch (err) {
-        console.error('❌ Erro ao carregar configurações dinâmicas:', err);
+      } catch {
         aplicarMeta(dinamiqueConfig);
       }
     };
 
     const aplicarMeta = (config) => {
       document.title = config.titulo || 'Sistema';
+
       let metaDesc = document.querySelector("meta[name='description']");
       if (!metaDesc) {
         metaDesc = document.createElement('meta');
         metaDesc.setAttribute('name', 'description');
         document.head.appendChild(metaDesc);
       }
-      metaDesc.setAttribute('content', config.descricao || 'Sistema Multinegociações');
+      metaDesc.setAttribute('content', config.descricao);
 
       let favicon = document.querySelector("link[rel='icon']");
       if (!favicon) {
@@ -65,8 +63,9 @@ const useDynamicMeta = () => {
         favicon.setAttribute('rel', 'icon');
         document.head.appendChild(favicon);
       }
+
       favicon.setAttribute('type', 'image/png');
-      favicon.setAttribute('href', config.favicon_url || 'https://i.ibb.co/MDBrt4hb/favicon.png');
+      favicon.setAttribute('href', config.favicon_url);
     };
 
     carregarDinamique();
@@ -75,12 +74,9 @@ const useDynamicMeta = () => {
   return dinamiqueConfig;
 };
 
-/* 🌐 Componente principal */
 const App = () => {
 
-  // ---------------------------
-  // 🌗 SISTEMA DE TEMA
-  // ---------------------------
+  /* 🌗 SISTEMA DE TEMA */
 
   const [darkMode, setDarkMode] = useState(true);
 
@@ -102,58 +98,70 @@ const App = () => {
     localStorage.setItem("theme", isDark ? "dark" : "light");
   };
 
-  // ---------------------------
-  // 🧠 Estados Globais
-  // ---------------------------
+  /* 🧠 ESTADOS */
 
   const [currentScreen, setCurrentScreen] = useState('login');
   const [userInfo, setUserInfo] = useState(null);
+
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showInsightsModal, setShowInsightsModal] = useState(false);
   const [showUserManagementModal, setShowUserManagementModal] = useState(false);
   const [showSupervisorChatModal, setShowSupervisorChatModal] = useState(false);
   const [showRescueModal, setShowRescueModal] = useState(false);
+
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-  const [logoConfig, setLogoConfig] = useState({ enabled: false, url: '', height: 30 });
+
+  const [logoConfig, setLogoConfig] = useState({
+    enabled: false,
+    url: '',
+    height: 30
+  });
+
   const [editingCadastro, setEditingCadastro] = useState(null);
 
   const { toast } = useToast();
 
-  const dinamiqueConfig = useDynamicMeta();
+  useDynamicMeta();
 
   useDataMigrator(userInfo);
 
-  const { presenceChannel, chatChannel } = useSupabaseChannels(userInfo, setHasUnreadMessages);
+  const { presenceChannel, chatChannel } =
+    useSupabaseChannels(userInfo, setHasUnreadMessages);
 
-  // ---------------------------
-  // 🔌 Teste Supabase
-  // ---------------------------
+  /* 🔌 TESTE SUPABASE */
 
   useEffect(() => {
+
     const checkSupabaseConnection = async () => {
+
       if (supabase) {
+
         const connected = await testConnection();
+
         if (connected) {
           toast({
             title: 'Supabase Conectado!',
             description: 'Conexão com o banco estabelecida.',
           });
         }
+
       } else {
+
         toast({
           title: 'Supabase Não Configurado',
           description: 'O app usará localStorage como fallback.',
           variant: 'destructive',
         });
+
       }
+
     };
 
     checkSupabaseConnection();
+
   }, [toast]);
 
-  // ---------------------------
-  // 🔐 Login
-  // ---------------------------
+  /* 🔐 LOGIN */
 
   const handleLogin = (loginData) => {
 
@@ -168,36 +176,28 @@ const App = () => {
       pode_usar_funcao_resgate: false,
     };
 
-    let parsedPermissoes = null;
-
-    try {
-      if (typeof loginData.permissoes === 'string') {
-        const cleaned = loginData.permissoes.replace(/^"|"$/g, '').replace(/\\"/g, '"');
-        parsedPermissoes = JSON.parse(cleaned);
-      } else if (typeof loginData.permissoes === 'object' && loginData.permissoes !== null) {
-        parsedPermissoes = loginData.permissoes;
-      }
-    } catch (error) {
-      console.error('Erro ao interpretar permissoes:', error);
-      parsedPermissoes = null;
-    }
-
-    let permissions = parsedPermissoes || defaultPermissions;
+    let permissions = loginData.permissoes || defaultPermissions;
 
     if (loginData.tipo_acesso === 'admin') {
-      permissions = Object.fromEntries(Object.keys(defaultPermissions).map((key) => [key, true]));
+
+      permissions = Object.fromEntries(
+        Object.keys(defaultPermissions).map((key) => [key, true])
+      );
+
     }
 
     setUserInfo({ ...loginData, permissoes: permissions });
+
     setCurrentScreen('admin_dashboard');
+
     setEditingCadastro(null);
+
   };
 
-  // ---------------------------
-  // 🚪 Logout
-  // ---------------------------
+  /* 🚪 LOGOUT */
 
   const handleLogout = async () => {
+
     try {
 
       if (presenceChannel) await supabase.removeChannel(presenceChannel);
@@ -207,6 +207,7 @@ const App = () => {
 
       setHasUnreadMessages(false);
       setEditingCadastro(null);
+
       setShowInsightsModal(false);
       setShowSearchModal(false);
       setShowRescueModal(false);
@@ -216,11 +217,7 @@ const App = () => {
       setUserInfo(null);
       setCurrentScreen('login');
 
-      setTimeout(() => {
-        window.scrollTo(0, 0);
-      }, 200);
-
-    } catch (error) {
+    } catch {
 
       toast({
         title: 'Erro ao sair',
@@ -229,53 +226,158 @@ const App = () => {
       });
 
     }
+
   };
 
-  // ---------------------------
-  // 🖥️ Renderização
-  // ---------------------------
+  /* ⚙️ MODAIS */
+
+  const handleShowSearch = () => setShowSearchModal(true);
+
+  const handleShowInsights = () => setShowInsightsModal(true);
+
+  const handleShowUserManagement = () => setShowUserManagementModal(true);
+
+  const handleShowRescueModal = () => setShowRescueModal(true);
+
+  const handleShowSupervisorChat = () => {
+
+    setShowSupervisorChatModal(true);
+
+    setHasUnreadMessages(false);
+
+    localStorage.setItem(
+      'lastSeenChatTimestamp',
+      new Date().toISOString()
+    );
+
+  };
+
+  /* ✏️ EDIÇÃO CADASTRO */
+
+  const handleEditCadastroRequest = useCallback(
+
+    (cadastroData) => {
+
+      const mappedData = {};
+
+      for (const key in initialFormData)
+        mappedData[key] = cadastroData[key] || initialFormData[key];
+
+      if (userInfo) {
+
+        mappedData.vendedor =
+          cadastroData.vendedor || userInfo.vendedor;
+
+        mappedData.equipe =
+          cadastroData.equipe || userInfo.equipe;
+
+      }
+
+      setEditingCadastro(mappedData);
+
+      setCurrentScreen('form');
+
+      setShowSearchModal(false);
+
+      toast({
+        title: 'Modo de Edição',
+        description:
+          `Editando cadastro: ${cadastroData.codigo_cadastro || 'Novo Cadastro'}`,
+      });
+
+    },
+
+    [userInfo, toast]
+
+  );
+
+  const handleNavigateToForm = () => {
+
+    setEditingCadastro(null);
+
+    setCurrentScreen('form');
+
+  };
+
+  const handleFormSubmissionSuccess = () => {
+
+    setEditingCadastro(null);
+
+    if (userInfo?.tipo_acesso)
+      setCurrentScreen('admin_dashboard');
+
+  };
+
+  const handleBackToDashboard = () => {
+
+    setEditingCadastro(null);
+
+    setCurrentScreen('admin_dashboard');
+
+  };
+
+  /* 🖥️ RENDER SCREEN */
 
   const renderScreen = () => {
 
     switch (currentScreen) {
 
       case 'login':
+
         return <LoginPage onLogin={handleLogin} />;
 
       case 'form':
+
         return (
+
           <FormPage
             userInfo={userInfo}
             onLogout={handleLogout}
             logoConfig={logoConfig}
             initialDataForEdit={editingCadastro}
+            onSubmissionSuccess={handleFormSubmissionSuccess}
+            onBackToDashboard={handleBackToDashboard}
           />
+
         );
 
       case 'admin_dashboard':
-        if (!userInfo) return <LoginPage onLogin={handleLogin} />;
+
+        if (!userInfo)
+          return <LoginPage onLogin={handleLogin} />;
 
         return (
+
           <AdminDashboard
             userInfo={userInfo}
             onLogout={handleLogout}
+            onShowSearch={handleShowSearch}
+            onShowInsights={handleShowInsights}
+            onNavigateToForm={handleNavigateToForm}
+            onShowUserManagement={handleShowUserManagement}
+            onShowSupervisorChat={handleShowSupervisorChat}
+            onShowRescueModal={handleShowRescueModal}
+            hasUnreadMessages={hasUnreadMessages}
+            presenceChannel={presenceChannel}
           />
+
         );
 
       default:
+
         return <LoginPage onLogin={handleLogin} />;
+
     }
 
   };
 
-  // ---------------------------
-  // 🌐 RENDER
-  // ---------------------------
+  /* 🌐 RENDER */
 
   return (
+
     <main className="min-h-screen bg-background text-foreground relative">
 
-      {/* HEADER GLOBAL */}
+      {/* BOTÃO TEMA */}
 
       <div className="absolute top-4 right-4 z-50">
 
@@ -283,7 +385,9 @@ const App = () => {
           onClick={toggleTheme}
           className="p-2 rounded-lg border bg-card hover:scale-105 transition"
         >
+
           {darkMode ? <Sun size={18}/> : <Moon size={18}/>}
+
         </button>
 
       </div>
@@ -296,7 +400,7 @@ const App = () => {
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
         logoConfig={logoConfig}
-        onEditCadastro={() => {}}
+        onEditCadastro={handleEditCadastroRequest}
         userInfo={userInfo}
       />
 
@@ -317,16 +421,33 @@ const App = () => {
         currentUser={userInfo}
       />
 
-      <SupervisorChatModal
-        isOpen={showSupervisorChatModal}
-        onClose={() => setShowSupervisorChatModal(false)}
-        userInfo={userInfo}
-      />
+      {(userInfo?.tipo_acesso === 'admin' ||
+        userInfo?.permissoes?.pode_ver_chat_supervisores) && (
+
+        <SupervisorChatModal
+          isOpen={showSupervisorChatModal}
+          onClose={() => {
+
+            setShowSupervisorChatModal(false);
+            setHasUnreadMessages(false);
+
+            localStorage.setItem(
+              'lastSeenChatTimestamp',
+              new Date().toISOString()
+            );
+
+          }}
+          userInfo={userInfo}
+        />
+
+      )}
 
       <Toaster />
 
     </main>
+
   );
+
 };
 
 export default App;
