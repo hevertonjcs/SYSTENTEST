@@ -14,6 +14,8 @@ import { initialFormData } from '@/constants';
 import { useDataMigrator } from '@/hooks/useDataMigrator';
 import { useSupabaseChannels } from '@/hooks/useSupabaseChannels';
 
+import { Sun, Moon } from 'lucide-react';
+
 /* ✅ Hook dinâmico com fallback automático e seguro */
 const useDynamicMeta = () => {
   const [dinamiqueConfig, setDinamiqueConfig] = useState({
@@ -43,7 +45,7 @@ const useDynamicMeta = () => {
         aplicarMeta(data);
       } catch (err) {
         console.error('❌ Erro ao carregar configurações dinâmicas:', err);
-        aplicarMeta(dinamiqueConfig); // fallback automático
+        aplicarMeta(dinamiqueConfig);
       }
     };
 
@@ -75,9 +77,35 @@ const useDynamicMeta = () => {
 
 /* 🌐 Componente principal */
 const App = () => {
+
+  // ---------------------------
+  // 🌗 SISTEMA DE TEMA
+  // ---------------------------
+
+  const [darkMode, setDarkMode] = useState(true);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+
+    if (savedTheme === "light") {
+      document.documentElement.classList.remove("dark");
+      setDarkMode(false);
+    } else {
+      document.documentElement.classList.add("dark");
+      setDarkMode(true);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const isDark = document.documentElement.classList.toggle("dark");
+    setDarkMode(isDark);
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+  };
+
   // ---------------------------
   // 🧠 Estados Globais
   // ---------------------------
+
   const [currentScreen, setCurrentScreen] = useState('login');
   const [userInfo, setUserInfo] = useState(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -88,20 +116,19 @@ const App = () => {
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const [logoConfig, setLogoConfig] = useState({ enabled: false, url: '', height: 30 });
   const [editingCadastro, setEditingCadastro] = useState(null);
+
   const { toast } = useToast();
 
-  /* ✅ Integra metadados dinâmicos */
   const dinamiqueConfig = useDynamicMeta();
 
-  /* ✅ Migração de dados */
   useDataMigrator(userInfo);
 
-  /* ✅ Hook centralizado do Supabase (presença + chat) */
   const { presenceChannel, chatChannel } = useSupabaseChannels(userInfo, setHasUnreadMessages);
 
   // ---------------------------
-  // 🔌 Teste de conexão Supabase
+  // 🔌 Teste Supabase
   // ---------------------------
+
   useEffect(() => {
     const checkSupabaseConnection = async () => {
       if (supabase) {
@@ -109,7 +136,7 @@ const App = () => {
         if (connected) {
           toast({
             title: 'Supabase Conectado!',
-            description: 'Conexão com o banco de dados estabelecida com sucesso.',
+            description: 'Conexão com o banco estabelecida.',
           });
         }
       } else {
@@ -120,13 +147,16 @@ const App = () => {
         });
       }
     };
+
     checkSupabaseConnection();
   }, [toast]);
 
   // ---------------------------
-  // 🔐 Login e permissões
+  // 🔐 Login
   // ---------------------------
+
   const handleLogin = (loginData) => {
+
     const defaultPermissions = {
       pode_ver_todos_cadastros: false,
       pode_ver_cadastros: true,
@@ -148,7 +178,7 @@ const App = () => {
         parsedPermissoes = loginData.permissoes;
       }
     } catch (error) {
-      console.error('Erro ao interpretar permissoes do usuário:', error, loginData.permissoes);
+      console.error('Erro ao interpretar permissoes:', error);
       parsedPermissoes = null;
     }
 
@@ -156,12 +186,7 @@ const App = () => {
 
     if (loginData.tipo_acesso === 'admin') {
       permissions = Object.fromEntries(Object.keys(defaultPermissions).map((key) => [key, true]));
-    } else if (loginData.tipo_acesso === 'supervisor') {
-      permissions.pode_ver_todos_cadastros = true;
-      permissions.pode_ver_chat_supervisores = true;
     }
-
-    console.log('Usuário logado com permissões:', permissions);
 
     setUserInfo({ ...loginData, permissoes: permissions });
     setCurrentScreen('admin_dashboard');
@@ -169,26 +194,17 @@ const App = () => {
   };
 
   // ---------------------------
-  // 🚪 Logout com limpeza SEGURA e sem tela branca
+  // 🚪 Logout
   // ---------------------------
+
   const handleLogout = async () => {
     try {
-      console.log('🔄 Iniciando processo de logout seguro...');
 
-      // ✅ Remove canais Realtime (caso existam)
-      if (presenceChannel) {
-        await supabase.removeChannel(presenceChannel);
-        console.log('🧹 Canal de presença encerrado.');
-      }
-      if (chatChannel) {
-        await supabase.removeChannel(chatChannel);
-        console.log('🧹 Canal de chat encerrado.');
-      }
+      if (presenceChannel) await supabase.removeChannel(presenceChannel);
+      if (chatChannel) await supabase.removeChannel(chatChannel);
 
-      // ✅ Limpa localStorage e estados persistentes
       localStorage.clear();
 
-      // ✅ Reseta todos os estados críticos
       setHasUnreadMessages(false);
       setEditingCadastro(null);
       setShowInsightsModal(false);
@@ -197,143 +213,103 @@ const App = () => {
       setShowUserManagementModal(false);
       setShowSupervisorChatModal(false);
 
-      // ✅ Redefine o usuário e a tela atual
       setUserInfo(null);
       setCurrentScreen('login');
 
-      // ✅ Força atualização visual leve (sem reload completo)
       setTimeout(() => {
         window.scrollTo(0, 0);
       }, 200);
 
-      console.log('✅ Logout concluído com segurança!');
     } catch (error) {
-      console.error('❌ Erro ao deslogar:', error);
+
       toast({
         title: 'Erro ao sair',
-        description: 'Algo inesperado ocorreu durante o logout. Recarregue a página se persistir.',
+        description: 'Algo inesperado ocorreu.',
         variant: 'destructive',
       });
+
     }
   };
 
   // ---------------------------
-  // ⚙️ Abertura de modais
+  // 🖥️ Renderização
   // ---------------------------
-  const handleShowSearch = () => setShowSearchModal(true);
-  const handleShowInsights = () => setShowInsightsModal(true);
-  const handleShowUserManagement = () => setShowUserManagementModal(true);
-  const handleShowRescueModal = () => setShowRescueModal(true);
-  const handleShowSupervisorChat = () => {
-    setShowSupervisorChatModal(true);
-    setHasUnreadMessages(false);
-    localStorage.setItem('lastSeenChatTimestamp', new Date().toISOString());
-  };
 
-  // ---------------------------
-  // ✏️ Edição e formulários
-  // ---------------------------
-  const handleEditCadastroRequest = useCallback(
-    (cadastroData) => {
-      const mappedData = {};
-      for (const key in initialFormData) mappedData[key] = cadastroData[key] || initialFormData[key];
-      if (userInfo) {
-        mappedData.vendedor = cadastroData.vendedor || userInfo.vendedor;
-        mappedData.equipe = cadastroData.equipe || userInfo.equipe;
-      }
-      setEditingCadastro(mappedData);
-      setCurrentScreen('form');
-      setShowSearchModal(false);
-      toast({
-        title: 'Modo de Edição',
-        description: `Editando cadastro: ${cadastroData.codigo_cadastro || 'Novo Cadastro'}`,
-      });
-    },
-    [userInfo, toast]
-  );
-
-  const handleFormSubmissionSuccess = () => {
-    setEditingCadastro(null);
-    if (userInfo?.tipo_acesso) setCurrentScreen('admin_dashboard');
-  };
-
-  const handleNavigateToForm = () => {
-    setEditingCadastro(null);
-    setCurrentScreen('form');
-  };
-
-  const handleBackToDashboard = () => {
-    setEditingCadastro(null);
-    setCurrentScreen('admin_dashboard');
-  };
-
-  // ---------------------------
-  // 🖥️ Renderização de telas
-  // ---------------------------
   const renderScreen = () => {
-    try {
-      switch (currentScreen) {
-        case 'login':
-          return <LoginPage onLogin={handleLogin} />;
-        case 'form':
-          return (
-            <FormPage
-              userInfo={userInfo}
-              onLogout={handleLogout}
-              logoConfig={logoConfig}
-              initialDataForEdit={editingCadastro}
-              onSubmissionSuccess={handleFormSubmissionSuccess}
-              onBackToDashboard={handleBackToDashboard}
-            />
-          );
-        case 'admin_dashboard':
-          if (!userInfo) return <LoginPage onLogin={handleLogin} />;
-          return (
-            <AdminDashboard
-              userInfo={userInfo}
-              onLogout={handleLogout}
-              onShowSearch={handleShowSearch}
-              onShowInsights={handleShowInsights}
-              onNavigateToForm={handleNavigateToForm}
-              onShowUserManagement={handleShowUserManagement}
-              onShowSupervisorChat={handleShowSupervisorChat}
-              onShowRescueModal={handleShowRescueModal}
-              hasUnreadMessages={hasUnreadMessages}
-              presenceChannel={presenceChannel}
-            />
-          );
-        default:
-          return <LoginPage onLogin={handleLogin} />;
-      }
-    } catch (error) {
-      console.error('⚠️ Erro na renderização da tela:', error);
-      return (
-        <div className="p-8 text-center">
-          <p className="text-red-500 font-semibold">Erro inesperado. Recarregue a página.</p>
-        </div>
-      );
+
+    switch (currentScreen) {
+
+      case 'login':
+        return <LoginPage onLogin={handleLogin} />;
+
+      case 'form':
+        return (
+          <FormPage
+            userInfo={userInfo}
+            onLogout={handleLogout}
+            logoConfig={logoConfig}
+            initialDataForEdit={editingCadastro}
+          />
+        );
+
+      case 'admin_dashboard':
+        if (!userInfo) return <LoginPage onLogin={handleLogin} />;
+
+        return (
+          <AdminDashboard
+            userInfo={userInfo}
+            onLogout={handleLogout}
+          />
+        );
+
+      default:
+        return <LoginPage onLogin={handleLogin} />;
     }
+
   };
 
   // ---------------------------
-  // 🌐 Render principal
+  // 🌐 RENDER
   // ---------------------------
+
   return (
     <main className="min-h-screen bg-background text-foreground relative">
+
+      {/* HEADER GLOBAL */}
+
+      <div className="absolute top-4 right-4 z-50">
+
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-lg border bg-card hover:scale-105 transition"
+        >
+          {darkMode ? <Sun size={18}/> : <Moon size={18}/>}
+        </button>
+
+      </div>
+
       {renderScreen()}
 
-      {/* Modais principais */}
+      {/* MODAIS */}
+
       <SearchModal
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
         logoConfig={logoConfig}
-        onEditCadastro={handleEditCadastroRequest}
+        onEditCadastro={() => {}}
         userInfo={userInfo}
       />
 
-      <RescueModal isOpen={showRescueModal} onClose={() => setShowRescueModal(false)} userInfo={userInfo} />
+      <RescueModal
+        isOpen={showRescueModal}
+        onClose={() => setShowRescueModal(false)}
+        userInfo={userInfo}
+      />
 
-      <InsightsModal isOpen={showInsightsModal} onClose={() => setShowInsightsModal(false)} />
+      <InsightsModal
+        isOpen={showInsightsModal}
+        onClose={() => setShowInsightsModal(false)}
+      />
 
       <UserManagementModal
         isOpen={showUserManagementModal}
@@ -341,19 +317,14 @@ const App = () => {
         currentUser={userInfo}
       />
 
-      {(userInfo?.tipo_acesso === 'admin' || userInfo?.permissoes?.pode_ver_chat_supervisores) && (
-        <SupervisorChatModal
-          isOpen={showSupervisorChatModal}
-          onClose={() => {
-            setShowSupervisorChatModal(false);
-            setHasUnreadMessages(false);
-            localStorage.setItem('lastSeenChatTimestamp', new Date().toISOString());
-          }}
-          userInfo={userInfo}
-        />
-      )}
+      <SupervisorChatModal
+        isOpen={showSupervisorChatModal}
+        onClose={() => setShowSupervisorChatModal(false)}
+        userInfo={userInfo}
+      />
 
       <Toaster />
+
     </main>
   );
 };
